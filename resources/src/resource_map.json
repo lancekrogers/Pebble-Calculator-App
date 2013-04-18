@@ -1,0 +1,21 @@
+
+{"friendlyVersion": "VERSION",
+ "versionDefName": "CALCULATOR",
+ "media": [
+	   {
+	    "type":"raw",
+	    "defName":"DUMMY",
+	    "file":"resource_map.json"
+	   },
+	   {
+            "type": "png",
+            "defName": "IMAGE_BACKGROUND", 
+            "file": "calculator.png"
+	   },
+	   {
+	    "type": "png",
+	    "defName": "IMAGE_MENU_ICON",
+	    "file": "logo.png"
+	   }
+	  ]
+}
