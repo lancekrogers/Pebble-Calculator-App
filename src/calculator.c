@@ -15,7 +15,7 @@ Window window;
 BmpContainer background;
 Layer display_layer;
 
-unsigned char x, y, use_dtoa = 1;
+unsigned char x, y, use_dtoa = 1, dir = 0;
 
 int pos_i = 0, pos_j = 3;
 
@@ -23,38 +23,46 @@ signed char sign = 1;
 
 double a = 0.0, b = 0.0, m = 1.0;
 
-char dir = 0, state = 0, key = 0, op = 0;
+char state = 0, key = 0, op = 0;
 
-char l[16] = "7410852.963=/*-+"; /* see if your syntax hilighting gets this wrong */
-
-char s[64];
+char *s;
 
 int (*my_sprintf)(char *str, const char *format, ...);
 
-void my_dtoa( double d ) {
+char* my_dtoa( double d ) {
+  static char str[64] = "";
   if ( use_dtoa ) {
-    dtoa(d, (char*)&s);
+    dtoa(d, (char*)&str);
   } else {
     my_sprintf = (void *)(0x8010001 + 0x2ef70);
-    (*my_sprintf)((char*)&s, "%8.8f", d);
+    (*my_sprintf)((char*)&str, "%8.8f", d);
   }
+  return (char*)&str;
 }
 
-void move_sel() {
-	if ( pos_i > 3 ) pos_i = 0;
-	if ( pos_j > 3 ) pos_j = 0;
-	if ( pos_i < 0 ) pos_i = 3;
-	if ( pos_j < 0 ) pos_j = 3;
-	x = 2 + ( pos_i * 36 );
-	y = 50 + ( pos_j * 26 );
+void draw_sel(AppContextRef ctx, unsigned char x, unsigned char y) {
+	graphics_draw_line(ctx, GPoint(x,y), GPoint(x+32,y));
+	graphics_draw_line(ctx, GPoint(x+32,y+1), GPoint(x+32,y+19));
+	graphics_draw_line(ctx, GPoint(x+31,y+19), GPoint(x+1,y+19));
+	graphics_draw_line(ctx, GPoint(x,y+19), GPoint(x,y+1));
 }
 
-void draw_sel() {
-	
+double eval_op(char op, double a, double b) {
+	if ( op == '+' ) {
+		return b + a;
+	} else if ( op == '-' ) {
+		return b - a;
+	} else if ( op == '*' ) {
+		return b * a;
+	} else if ( op == '/' ) {
+		if ( a != 0 ) {
+			return b / a;
+		}
+	}
+	return 0.0;
 }
 
 void do_calc() {
-  if ( key > 0 ) {
      if ( ( key == '-' ) && ( a == 0.0 ) && ( state == 0 ) ) {
 	sign = sign * -1;
      }
@@ -70,19 +78,7 @@ void do_calc() {
      } else if ( key == '=' ) {
 	if ( op != 0 ) {
 	    b = sign * b;
-	    if ( op == '+' ) {
-		a = b + a;
-	    } else if ( op == '-' ) {
-		a = b - a;
-	    } else if ( op == '*' ) {
-		a = b * a;
-	    } else if ( op == '/' ) {
-		if ( a != 0 ) {
-			a = b / a;
-		} else {
-			a = 0;
-		}
-	    }
+	    a = eval_op(op, a, b);
 	    sign = 1;
 	    state = 0;
 	    op = 0;
@@ -96,32 +92,48 @@ void do_calc() {
 	state = 0;
 	m = 1.0;
      }
-     key = 0;
-  }
 }
 
 void display_layer_update_callback(Layer *me, GContext* ctx) {
   (void)me;
-  move_sel();
-  graphics_context_set_fill_color(ctx, GColorWhite);
-//  graphics_context_set_compositing_mode(ctx, GCompOpAssignInverted);
-//  graphics_fill_rect(ctx, GRect(x, y, 32, 19), 0, GCornerNone );
-  graphics_context_set_text_color(ctx, GColorWhite);
+  
+	if ( pos_i > 3 ) pos_i = 0;
+	if ( pos_j > 3 ) pos_j = 0;
+	if ( pos_i < 0 ) pos_i = 3;
+	if ( pos_j < 0 ) pos_j = 3;
+	x = 2 + ( pos_i * 36 );
+	y = 50 + ( pos_j * 26 );
 
-  do_calc();
+	if ( key > 0 ) {
+		do_calc();
+		key = 0;
+	}
 
-  my_dtoa( sign * a );
+	s = my_dtoa( sign * a );
 
-  graphics_text_draw(ctx, s,
+	graphics_context_set_fill_color(ctx, GColorWhite);
+	graphics_context_set_text_color(ctx, GColorWhite);
+
+	graphics_text_draw(ctx, s,
                      fonts_get_system_font(FONT_KEY_FONT_FALLBACK),
                      GRect(25, 5, 144-35, 25),
                      GTextOverflowModeWordWrap,
                      GTextAlignmentRight,
                      NULL);
 
+
+	s[0] = "^>v<"[dir];
+	s[1] = 0;
+	graphics_text_draw(ctx, s,
+                     fonts_get_system_font(FONT_KEY_FONT_FALLBACK),
+                     GRect(5, 25, 25, 25),
+                     GTextOverflowModeWordWrap,
+                     GTextAlignmentLeft,
+                     NULL);
+
+
   if ( op != 0 ) {
     s[0] = op;
-    s[1] = 0;
     graphics_text_draw(ctx, s,
                      fonts_get_system_font(FONT_KEY_FONT_FALLBACK),
                      GRect(5, 5, 25, 25),
@@ -130,8 +142,7 @@ void display_layer_update_callback(Layer *me, GContext* ctx) {
                      NULL);
 
     if ( b != 0 ) {
-       s[0] = 0;
-       my_dtoa( b );
+       s = my_dtoa( b );
        graphics_text_draw(ctx, s,
                      fonts_get_system_font(FONT_KEY_FONT_FALLBACK),
                      GRect(25, 25, 144-35, 25),
@@ -140,10 +151,7 @@ void display_layer_update_callback(Layer *me, GContext* ctx) {
                      NULL);
     }
   }
-  graphics_draw_line(ctx, GPoint(x,y), GPoint(x+32,y));
-  graphics_draw_line(ctx, GPoint(x+32,y+1), GPoint(x+32,y+19));
-  graphics_draw_line(ctx, GPoint(x+31,y+19), GPoint(x+1,y+19));
-  graphics_draw_line(ctx, GPoint(x,y+19), GPoint(x,y+1));
+  draw_sel(ctx, x, y);
 }
 
 void calculator_move_handler(ClickRecognizerRef recognizer, Window *window) {
@@ -151,40 +159,40 @@ void calculator_move_handler(ClickRecognizerRef recognizer, Window *window) {
 	dir = 0;
   if ( dir < 2 )
     if (dir == 0 )
-	pos_i++;
+	pos_j--;
     else
-	pos_j++;
+	pos_i++;
   else
     if ( dir == 2 )
-	pos_i--;
+	pos_j++;
     else
-	pos_j--;
+	pos_i--;
   layer_mark_dirty(&display_layer);
 }
 
 void calculator_press_handler(ClickRecognizerRef recognizer, Window *window) {
-  key = l[(pos_i << 2) + pos_j];
-  layer_mark_dirty(&display_layer);
+	key = "7410852.963=/*-+"[(pos_i << 2) + pos_j];
+	layer_mark_dirty(&display_layer);
 }
 
 void calculator_turn_handler(ClickRecognizerRef recognizer, Window *window) {
-  dir++;
-  dir&=3;
-  layer_mark_dirty(&display_layer);
+	dir++;
+	dir&=3;
+	layer_mark_dirty(&display_layer);
 }
 
 void calculator_reset_handler(ClickRecognizerRef recognizer, Window *window) {
-  pos_i = 0; pos_j = 3;
-  a = b = 0.0;
-  m = 1.0;
-  dir = state = key = op = 0;
-  sign = 1;
-  layer_mark_dirty(&display_layer);
+	pos_i = 0; pos_j = 3;
+	a = b = 0.0;
+	m = 1.0;
+	dir = state = key = op = 0;
+	sign = 1;
+	layer_mark_dirty(&display_layer);
 }
 
 void calculator_mode_handler(ClickRecognizerRef recognizer, Window *window) {
-  use_dtoa = !use_dtoa;
-  layer_mark_dirty(&display_layer);
+	use_dtoa = !use_dtoa;
+	layer_mark_dirty(&display_layer);
 }
 
 void config_provider(ClickConfig **config, Window *window) {
@@ -219,7 +227,8 @@ void handle_init(AppContextRef ctx) {
 }
 
 void handle_deinit(AppContextRef ctx) {
-  bmp_deinit_container(&background);
+	layer_remove_from_parent(&background.layer.layer);
+	bmp_deinit_container(&background);
 }
 
 void pbl_main(void *params) {
@@ -229,4 +238,3 @@ void pbl_main(void *params) {
   };
   app_event_loop(params, &handlers);
 }
-
