@@ -1,0 +1,32 @@
+{
+    "versionLabel": "2.0",
+    "uuid": "65cad32e-eb04-43b8-9a2f-8e6de71a912c",
+    "appKeys": {},
+    "longName": "Calculator",
+    "versionCode": 2,
+    "shortName": "Calculator",
+    "companyName": "pbaylies",
+    "watchapp": {
+        "watchface": false
+    },
+    "resources": {
+        "media": [
+            {
+                "menuIcon": true,
+                "type": "png",
+                "name": "IMAGE_MENU_ICON",
+                "file": "images/logo.png"
+            },
+            {
+                "type": "png",
+                "name": "IMAGE_BACKGROUND",
+                "file": "images/calculator.png"
+            },
+            {
+                "type": "raw",
+                "name": "DUMMY",
+                "file": "data/resource_map.json"
+            }
+        ]
+    }
+}

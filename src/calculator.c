@@ -1,46 +1,32 @@
-#include "pebble_os.h"
-#include "pebble_app.h"
-#include "pebble_fonts.h"
+#include <pebble.h>
 #include "stdlib.h"
-#include "dtoa.h"
 
-#define MY_UUID { 0xB0, 0x2D, 0x89, 0x54, 0xD1, 0x2D, 0x47, 0xE8, 0xB7, 0x29, 0x5F, 0x20, 0xEA, 0xE3, 0x34, 0x17 }
-PBL_APP_INFO(MY_UUID,
-             "Calculator", "pbaylies",
-             1, 0, /* App version */
-             RESOURCE_ID_IMAGE_MENU_ICON,
-             APP_INFO_STANDARD_APP);
+static Window *window;
+static GBitmap *background;
+static BitmapLayer *bitmap_layer;
+static Layer *display_layer;
 
-Window window;
-BmpContainer background;
-Layer display_layer;
+static unsigned char x, y, dir = 0;
 
-unsigned char x, y, use_dtoa = 1, dir = 0;
+static int pos_i = 0, pos_j = 3;
 
-int pos_i = 0, pos_j = 3;
+static signed char sign = 1;
 
-signed char sign = 1;
+static double a = 0.0, b = 0.0, m = 1.0;
 
-double a = 0.0, b = 0.0, m = 1.0;
+static char state = 0, key = 0, op = 0;
 
-char state = 0, key = 0, op = 0;
+static char *s;
 
-char *s;
+static char str[64] = "";
 
-int (*my_sprintf)(char *str, const char *format, ...);
-
-char* my_dtoa( double d ) {
-  static char str[64] = "";
-  if ( use_dtoa ) {
-    dtoa(d, (char*)&str);
-  } else {
-    my_sprintf = (void *)(0x8010001 + 0x2ef70);
-    (*my_sprintf)((char*)&str, "%8.8f", d);
-  }
+static char* my_dtoa( double d ) {
+  snprintf((char*)&str, 64, "%d.%08d", (int)d, (int)((d - (int)d) * 100000000) ); /*** %f is broken long live %f ***/
   return (char*)&str;
 }
 
-void draw_sel(AppContextRef ctx, unsigned char x, unsigned char y) {
+static void draw_sel(GContext * ctx, unsigned char x, unsigned char y) {
+	graphics_context_set_stroke_color(ctx, GColorWhite);
 	graphics_draw_line(ctx, GPoint(x,y), GPoint(x+32,y));
 	graphics_draw_line(ctx, GPoint(x+32,y+1), GPoint(x+32,y+19));
 	graphics_draw_line(ctx, GPoint(x+31,y+19), GPoint(x+1,y+19));
@@ -95,14 +81,13 @@ void do_calc() {
 }
 
 void display_layer_update_callback(Layer *me, GContext* ctx) {
-  (void)me;
-  
+
 	if ( pos_i > 3 ) pos_i = 0;
 	if ( pos_j > 3 ) pos_j = 0;
 	if ( pos_i < 0 ) pos_i = 3;
 	if ( pos_j < 0 ) pos_j = 3;
 	x = 2 + ( pos_i * 36 );
-	y = 50 + ( pos_j * 26 );
+	y = 57 + ( pos_j * 26 );
 
 	if ( key > 0 ) {
 		do_calc();
@@ -114,9 +99,9 @@ void display_layer_update_callback(Layer *me, GContext* ctx) {
 	graphics_context_set_fill_color(ctx, GColorWhite);
 	graphics_context_set_text_color(ctx, GColorWhite);
 
-	graphics_text_draw(ctx, s,
-                     fonts_get_system_font(FONT_KEY_FONT_FALLBACK),
-                     GRect(25, 5, 144-35, 25),
+	graphics_draw_text(ctx, s,
+                     fonts_get_system_font(FONT_KEY_GOTHIC_14),
+                     GRect(25, 12, 144-35, 32),
                      GTextOverflowModeWordWrap,
                      GTextAlignmentRight,
                      NULL);
@@ -124,9 +109,9 @@ void display_layer_update_callback(Layer *me, GContext* ctx) {
 
 	s[0] = "^>v<"[dir];
 	s[1] = 0;
-	graphics_text_draw(ctx, s,
-                     fonts_get_system_font(FONT_KEY_FONT_FALLBACK),
-                     GRect(5, 25, 25, 25),
+	graphics_draw_text(ctx, s,
+                     fonts_get_system_font(FONT_KEY_GOTHIC_14),
+                     GRect(5, 32, 25, 25),
                      GTextOverflowModeWordWrap,
                      GTextAlignmentLeft,
                      NULL);
@@ -134,18 +119,18 @@ void display_layer_update_callback(Layer *me, GContext* ctx) {
 
   if ( op != 0 ) {
     s[0] = op;
-    graphics_text_draw(ctx, s,
-                     fonts_get_system_font(FONT_KEY_FONT_FALLBACK),
-                     GRect(5, 5, 25, 25),
+    graphics_draw_text(ctx, s,
+                     fonts_get_system_font(FONT_KEY_GOTHIC_14),
+                     GRect(5, 12, 32, 25),
                      GTextOverflowModeWordWrap,
                      GTextAlignmentLeft,
                      NULL);
 
     if ( b != 0 ) {
        s = my_dtoa( b );
-       graphics_text_draw(ctx, s,
-                     fonts_get_system_font(FONT_KEY_FONT_FALLBACK),
-                     GRect(25, 25, 144-35, 25),
+       graphics_draw_text(ctx, s,
+                     fonts_get_system_font(FONT_KEY_GOTHIC_14),
+                     GRect(25, 32, 144-35, 25),
                      GTextOverflowModeWordWrap,
                      GTextAlignmentRight,
                      NULL);
@@ -154,7 +139,7 @@ void display_layer_update_callback(Layer *me, GContext* ctx) {
   draw_sel(ctx, x, y);
 }
 
-void calculator_move_handler(ClickRecognizerRef recognizer, Window *window) {
+void calculator_move_handler(ClickRecognizerRef recognizer, void *context) {
   if ( dir > 4 )
 	dir = 0;
   if ( dir < 2 )
@@ -167,74 +152,65 @@ void calculator_move_handler(ClickRecognizerRef recognizer, Window *window) {
 	pos_j++;
     else
 	pos_i--;
-  layer_mark_dirty(&display_layer);
+  layer_mark_dirty(display_layer);
 }
 
-void calculator_press_handler(ClickRecognizerRef recognizer, Window *window) {
+static void calculator_press_handler(ClickRecognizerRef recognizer, void *context) {
 	key = "7410852.963=/*-+"[(pos_i << 2) + pos_j];
-	layer_mark_dirty(&display_layer);
+	layer_mark_dirty(display_layer);
 }
 
-void calculator_turn_handler(ClickRecognizerRef recognizer, Window *window) {
+static void calculator_turn_handler(ClickRecognizerRef recognizer, void *context) {
 	dir++;
 	dir&=3;
-	layer_mark_dirty(&display_layer);
+	layer_mark_dirty(display_layer);
 }
 
-void calculator_reset_handler(ClickRecognizerRef recognizer, Window *window) {
+static void calculator_reset_handler(ClickRecognizerRef recognizer, void *context) {
 	pos_i = 0; pos_j = 3;
 	a = b = 0.0;
 	m = 1.0;
 	dir = state = key = op = 0;
 	sign = 1;
-	layer_mark_dirty(&display_layer);
+	layer_mark_dirty(display_layer);
 }
 
-void calculator_mode_handler(ClickRecognizerRef recognizer, Window *window) {
-	use_dtoa = !use_dtoa;
-	layer_mark_dirty(&display_layer);
+void click_config_provider(void *context) {
+    window_single_click_subscribe(BUTTON_ID_UP, calculator_move_handler);
+    window_single_click_subscribe(BUTTON_ID_SELECT, calculator_press_handler);
+    window_single_click_subscribe(BUTTON_ID_DOWN, calculator_turn_handler);
+    window_long_click_subscribe(BUTTON_ID_SELECT, 700, calculator_reset_handler, NULL);
 }
 
-void config_provider(ClickConfig **config, Window *window) {
-    config[BUTTON_ID_UP]->click.handler = (ClickHandler)calculator_move_handler;
-    config[BUTTON_ID_SELECT]->click.handler = (ClickHandler)calculator_press_handler;
-    config[BUTTON_ID_DOWN]->click.handler = (ClickHandler)calculator_turn_handler;
-    config[BUTTON_ID_SELECT]->long_click.handler = (ClickHandler)calculator_reset_handler;
-    config[BUTTON_ID_SELECT]->long_click.delay_ms = 700;
-    config[BUTTON_ID_DOWN]->long_click.handler = (ClickHandler)calculator_mode_handler;
-    config[BUTTON_ID_DOWN]->long_click.delay_ms = 700;
-    (void)window;
-}
+void handle_init(void) {
+  Layer *window_layer;
+  window = window_create();
+  window_set_fullscreen(window, true);
+  window_stack_push(window, true);
 
-void handle_init(AppContextRef ctx) {
-  (void)ctx;
-
-  window_init(&window, "Calculator");
-  window_stack_push(&window, true);
-
-  resource_init_current_app(&CALCULATOR);
-  bmp_init_container(RESOURCE_ID_IMAGE_BACKGROUND, &background);
-  window_set_background_color(&window, GColorBlack);
-  layer_add_child(&window.layer, &background.layer.layer);
+  background = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BACKGROUND);
+  bitmap_layer = bitmap_layer_create(GRect(0, 0, 144, 168));
+  bitmap_layer_set_bitmap(bitmap_layer, background);
+  window_set_background_color(window, GColorBlack);
+  window_layer = window_get_root_layer(window);
+  layer_add_child(window_layer, bitmap_layer_get_layer(bitmap_layer));
 
   // Init the layer for the display
-  layer_init(&display_layer, window.layer.frame);
-  display_layer.update_proc = &display_layer_update_callback;
-  layer_add_child(&window.layer, &display_layer);
-  
-  window_set_click_config_provider(&window, (ClickConfigProvider) config_provider);
-  layer_mark_dirty(&display_layer);
+  display_layer = layer_create(GRect(0, 0, 144, 168));
+  layer_set_update_proc(display_layer, display_layer_update_callback);
+  layer_add_child(window_layer, display_layer);
+
+  window_set_click_config_provider(window, click_config_provider);
+  layer_mark_dirty(display_layer);
 }
 
-void handle_deinit(AppContextRef ctx) {
-	layer_remove_from_parent(&background.layer.layer);
-	bmp_deinit_container(&background);
+static void handle_deinit() {
+	layer_remove_from_parent(display_layer);
+	gbitmap_destroy(background);
 }
 
-void pbl_main(void *params) {
-  PebbleAppHandlers handlers = {
-    .init_handler = &handle_init,
-    .deinit_handler = &handle_deinit,
-  };
-  app_event_loop(params, &handlers);
+int main(void) {
+	handle_init();
+	app_event_loop();
+	handle_deinit();
 }
