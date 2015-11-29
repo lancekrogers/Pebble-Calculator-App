@@ -1,32 +1,30 @@
 {
-    "versionLabel": "2.0",
-    "uuid": "65cad32e-eb04-43b8-9a2f-8e6de71a912c",
     "appKeys": {},
+    "capabilities": [
+        ""
+    ],
+    "companyName": "pbaylies@gmail.com",
     "longName": "Calculator",
-    "versionCode": 2,
-    "shortName": "Calculator",
-    "companyName": "pbaylies",
-    "watchapp": {
-        "watchface": false
-    },
+    "projectType": "native",
     "resources": {
         "media": [
             {
-                "menuIcon": true,
-                "type": "png",
-                "name": "IMAGE_MENU_ICON",
-                "file": "images/logo.png"
-            },
-            {
-                "type": "png",
+                "file": "images/calculator.png",
                 "name": "IMAGE_BACKGROUND",
-                "file": "images/calculator.png"
+                "type": "png"
             },
             {
-                "type": "raw",
-                "name": "DUMMY",
-                "file": "data/resource_map.json"
+                "file": "images/logo.png",
+                "name": "IMAGE_MENU_ICON",
+                "type": "png"
             }
         ]
+    },
+    "sdkVersion": "3",
+    "shortName": "Calculator",
+    "uuid": "7a26b0f6-ba89-4ff9-8d00-adcc9281024e",
+    "versionLabel": "1.0",
+    "watchapp": {
+        "watchface": false
     }
 }

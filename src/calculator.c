@@ -81,13 +81,17 @@ void do_calc() {
 }
 
 void display_layer_update_callback(Layer *me, GContext* ctx) {
-
+  int xoff = 0, yoff = 0;
+  #ifdef PBL_ROUND
+  xoff = 19;
+  yoff = -5;
+  #endif
 	if ( pos_i > 3 ) pos_i = 0;
 	if ( pos_j > 3 ) pos_j = 0;
 	if ( pos_i < 0 ) pos_i = 3;
 	if ( pos_j < 0 ) pos_j = 3;
-	x = 2 + ( pos_i * 36 );
-	y = 57 + ( pos_j * 26 );
+	x = 2 + xoff + ( pos_i * 36 );
+	y = 57 + yoff + ( pos_j * 26 );
 
 	if ( key > 0 ) {
 		do_calc();
@@ -101,7 +105,7 @@ void display_layer_update_callback(Layer *me, GContext* ctx) {
 
 	graphics_draw_text(ctx, s,
                      fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                     GRect(25, 12, 144-35, 32),
+                     GRect(25 + xoff, 12 + yoff, 144-35, 32),
                      GTextOverflowModeWordWrap,
                      GTextAlignmentRight,
                      NULL);
@@ -111,7 +115,7 @@ void display_layer_update_callback(Layer *me, GContext* ctx) {
 	s[1] = 0;
 	graphics_draw_text(ctx, s,
                      fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                     GRect(5, 32, 25, 25),
+                     GRect(5 + xoff, 32 + yoff, 25, 25),
                      GTextOverflowModeWordWrap,
                      GTextAlignmentLeft,
                      NULL);
@@ -121,7 +125,7 @@ void display_layer_update_callback(Layer *me, GContext* ctx) {
     s[0] = op;
     graphics_draw_text(ctx, s,
                      fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                     GRect(5, 12, 32, 25),
+                     GRect(5 + xoff, 12 + yoff, 32, 25),
                      GTextOverflowModeWordWrap,
                      GTextAlignmentLeft,
                      NULL);
@@ -130,7 +134,7 @@ void display_layer_update_callback(Layer *me, GContext* ctx) {
        s = my_dtoa( b );
        graphics_draw_text(ctx, s,
                      fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                     GRect(25, 32, 144-35, 25),
+                     GRect(25 + xoff, 32 + yoff, 144-35, 25),
                      GTextOverflowModeWordWrap,
                      GTextAlignmentRight,
                      NULL);
@@ -184,19 +188,25 @@ void click_config_provider(void *context) {
 
 void handle_init(void) {
   Layer *window_layer;
+  GRect bounds;
   window = window_create();
+  #ifndef PBL_COLOR
   window_set_fullscreen(window, true);
+  #endif
   window_stack_push(window, true);
 
-  background = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BACKGROUND);
-  bitmap_layer = bitmap_layer_create(GRect(0, 0, 144, 168));
-  bitmap_layer_set_bitmap(bitmap_layer, background);
   window_set_background_color(window, GColorBlack);
   window_layer = window_get_root_layer(window);
+  bounds = layer_get_bounds(window_layer);
+  background = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BACKGROUND);
+  bitmap_layer = bitmap_layer_create(bounds);
+  bitmap_layer_set_bitmap(bitmap_layer, background);
   layer_add_child(window_layer, bitmap_layer_get_layer(bitmap_layer));
 
   // Init the layer for the display
-  display_layer = layer_create(GRect(0, 0, 144, 168));
+  display_layer = layer_create( PBL_IF_ROUND_ELSE(
+    grect_inset(bounds, GEdgeInsets(10, -20, 0, 0)),
+    bounds ) );
   layer_set_update_proc(display_layer, display_layer_update_callback);
   layer_add_child(window_layer, display_layer);
 
